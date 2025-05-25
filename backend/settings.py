@@ -41,6 +41,8 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'accounts',
     'corsheaders',
+    'sellerpanel',
+    'django.contrib.humanize'
 ]
 
 MIDDLEWARE = [
@@ -60,7 +62,7 @@ ROOT_URLCONF = 'backend.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'sellerpanel' / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
