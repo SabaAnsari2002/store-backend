@@ -22,6 +22,8 @@ class ProductSerializer(serializers.ModelSerializer):
         if not subcategory:
             raise serializers.ValidationError(f"زیرمجموعه '{subcategory_name}' برای دسته‌بندی '{category_name}' یافت نشد.")
 
+        validated_data.pop('seller', None)
+
         product = Product.objects.create(
             seller=self.context['request'].user.seller,
             category=category,

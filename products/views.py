@@ -10,7 +10,8 @@ class ProductViewSet(viewsets.ModelViewSet):
         return Product.objects.filter(seller=self.request.user.seller)
 
     def perform_create(self, serializer):
-        serializer.save()
+        seller = self.request.user.seller
+        serializer.save(seller=seller)
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
