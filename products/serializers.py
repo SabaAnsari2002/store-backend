@@ -33,3 +33,36 @@ class ProductSerializer(serializers.ModelSerializer):
             **validated_data
         )
         return product
+
+    def update(self, instance, validated_data):
+        category_name = validated_data.get('category', '').strip()
+        subcategory_name = validated_data.get('subcategory', '').strip()
+
+        if category_name:
+            category, created = Category.objects.get_or_create(name=category_name)
+            instance.category = category
+
+        if subcategory_name:
+            subcategory, created = Subcategory.objects.get_or_create(
+                name=subcategory_name, category=instance.category
+            )
+            instance.subcategory = subcategory
+
+        instance.name = validated_data.get('name', instance.name)
+        instance.price = validated_data.get('price', instance.price)
+        instance.stock = validated_data.get('stock', instance.stock)
+        instance.save()
+        return instance
+
+
+class SubcategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subcategory
+        fields = ['id', 'name']
+
+class CategorySerializer(serializers.ModelSerializer):
+    subcategories = SubcategorySerializer(many=True)
+
+    class Meta:
+        model = Category
+        fields = ['id', 'name', 'subcategories']

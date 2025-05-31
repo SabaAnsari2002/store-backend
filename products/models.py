@@ -16,7 +16,7 @@ class Subcategory(models.Model):
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
     
     def __str__(self):
-        return f"{self.name} ({self.category})"
+        return f"{self.name}"
 
     class Meta:
         verbose_name = 'زیردسته‌بندی'

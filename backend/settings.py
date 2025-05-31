@@ -23,13 +23,18 @@ INSTALLED_APPS = [
 ]
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),  
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=120),  
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),     
     'ROTATE_REFRESH_TOKENS': False,                   
     'BLACKLIST_AFTER_ROTATION': False,                
     'ALGORITHM': 'HS256',                             
     'SIGNING_KEY': SECRET_KEY,                        
 }
+
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:5173',
+]
+
 
 
 REST_FRAMEWORK = {
