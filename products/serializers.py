@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Product, Category, Subcategory
+from .models import Category, Subcategory, Product
 
 class ProductSerializer(serializers.ModelSerializer):
     category = serializers.CharField()
@@ -14,13 +14,17 @@ class ProductSerializer(serializers.ModelSerializer):
         category_name = validated_data.pop('category', '').strip()
         subcategory_name = validated_data.pop('subcategory', '').strip()
 
-        category = Category.objects.filter(name__iexact=category_name).first()
-        if not category:
-            raise serializers.ValidationError(f"دسته‌بندی '{category_name}' یافت نشد.")
+        category, created = Category.objects.get_or_create(name=category_name)
+        if created:
+            print(f"دسته‌بندی '{category_name}' ایجاد شد.")
+        
+        subcategory, created = Subcategory.objects.get_or_create(
+            name=subcategory_name, category=category
+        )
+        if created:
+            print(f"زیرمجموعه '{subcategory_name}' برای دسته‌بندی '{category_name}' ایجاد شد.")
 
-        subcategory = Subcategory.objects.filter(name__iexact=subcategory_name, category=category).first()
-        if not subcategory:
-            raise serializers.ValidationError(f"زیرمجموعه '{subcategory_name}' برای دسته‌بندی '{category_name}' یافت نشد.")
+        validated_data.pop('seller', None)
 
         product = Product.objects.create(
             seller=self.context['request'].user.seller,
@@ -31,29 +35,34 @@ class ProductSerializer(serializers.ModelSerializer):
         return product
 
     def update(self, instance, validated_data):
-        category_name = validated_data.pop('category', None)
-        subcategory_name = validated_data.pop('subcategory', None)
+        category_name = validated_data.get('category', '').strip()
+        subcategory_name = validated_data.get('subcategory', '').strip()
 
         if category_name:
-            category = Category.objects.filter(name__iexact=category_name.strip()).first()
-            if not category:
-                raise serializers.ValidationError(f"دسته‌بندی '{category_name}' نامعتبر است.")
+            category, created = Category.objects.get_or_create(name=category_name)
             instance.category = category
 
         if subcategory_name:
-            subcategory = Subcategory.objects.filter(name__iexact=subcategory_name.strip(), category=instance.category).first()
-            if not subcategory:
-                raise serializers.ValidationError(f"زیرمجموعه '{subcategory_name}' برای این دسته یافت نشد.")
+            subcategory, created = Subcategory.objects.get_or_create(
+                name=subcategory_name, category=instance.category
+            )
             instance.subcategory = subcategory
 
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-
+        instance.name = validated_data.get('name', instance.name)
+        instance.price = validated_data.get('price', instance.price)
+        instance.stock = validated_data.get('stock', instance.stock)
         instance.save()
         return instance
 
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        data['category'] = instance.category.name if instance.category else None
-        data['subcategory'] = instance.subcategory.name if instance.subcategory else None
-        return data
+
+class SubcategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subcategory
+        fields = ['id', 'name']
+
+class CategorySerializer(serializers.ModelSerializer):
+    subcategories = SubcategorySerializer(many=True)
+
+    class Meta:
+        model = Category
+        fields = ['id', 'name', 'subcategories']
