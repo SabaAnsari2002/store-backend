@@ -1,6 +1,6 @@
 from rest_framework import viewsets, permissions
-from .models import Product, Category, Subcategory
-from .serializers import ProductSerializer,CategorySerializer
+from .models import Product
+from .serializers import ProductSerializer
 
 
 class ProductViewSet(viewsets.ModelViewSet):
@@ -27,7 +27,3 @@ class ProductViewSet(viewsets.ModelViewSet):
         context = super().get_serializer_context()
         context['request'] = self.request
         return context
-    
-class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Category.objects.all()
-    serializer_class = CategorySerializer
