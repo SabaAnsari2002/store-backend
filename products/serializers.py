@@ -25,6 +25,7 @@ class ProductSerializer(serializers.ModelSerializer):
         product_name = data.get('name', '').strip()
 
         instance = getattr(self, 'instance', None)
+        request = self.context.get('request')
 
         if category_name and subcategory_name and product_name:
             try:
@@ -34,7 +35,8 @@ class ProductSerializer(serializers.ModelSerializer):
                 query = Product.objects.filter(
                     name=product_name,
                     category=category,
-                    subcategory=subcategory
+                    subcategory=subcategory,
+                    seller=request.user.seller
                 )
                 
                 if instance:
@@ -53,6 +55,7 @@ class ProductSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         category_name = validated_data.pop('category', '').strip()
         subcategory_name = validated_data.pop('subcategory', '').strip()
+        request = self.context.get('request')
 
         category, created = Category.objects.get_or_create(name=category_name)
         if created:
@@ -67,7 +70,7 @@ class ProductSerializer(serializers.ModelSerializer):
         validated_data.pop('seller', None)
 
         product = Product.objects.create(
-            seller=self.context['request'].user.seller,
+            seller=request.user.seller,
             category=category,
             subcategory=subcategory,
             **validated_data
@@ -77,6 +80,7 @@ class ProductSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         category_name = validated_data.get('category', '').strip()
         subcategory_name = validated_data.get('subcategory', '').strip()
+        request = self.context.get('request')
 
         if category_name:
             category, created = Category.objects.get_or_create(name=category_name)
