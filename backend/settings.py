@@ -20,6 +20,7 @@ INSTALLED_APPS = [
     'users',
     'sellers',
     'products',
+    'store',
 ]
 
 SIMPLE_JWT = {

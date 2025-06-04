@@ -5,6 +5,8 @@ from .models import Product, Category, Subcategory
 from django.shortcuts import get_object_or_404
 from .serializers import CategorySerializer, ProductSerializer, SubcategorySerializer
 from rest_framework.views import APIView
+from sellers.models import Seller
+from sellers.serializers import SellerSerializer 
 
 
 class ProductViewSet(viewsets.ModelViewSet):
@@ -16,9 +18,9 @@ class ProductViewSet(viewsets.ModelViewSet):
         category_name = self.request.query_params.get('category', None)
         subcategory_name = self.request.query_params.get('subcategory', None)
         
-        seller = self.request.user.seller
-        queryset = queryset.filter(seller=seller)
-
+        if hasattr(self.request.user, 'seller'):
+            queryset = queryset.filter(seller=self.request.user.seller)
+        
         if category_name:
             queryset = queryset.filter(category__name=category_name)
         if subcategory_name:
@@ -27,8 +29,9 @@ class ProductViewSet(viewsets.ModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
-        seller = self.request.user.seller
-        serializer.save(seller=seller)
+        if not hasattr(self.request.user, 'seller'):
+            raise "You must be a seller to create products."
+        serializer.save(seller=self.request.user.seller)
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -49,6 +52,19 @@ class ProductViewSet(viewsets.ModelViewSet):
         category = get_object_or_404(Category, name=category_name)
         products = Product.objects.filter(category=category)
         serializer = self.get_serializer(products, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['get'], url_path='sellers')
+    def product_sellers(self, request, pk=None):
+        product = self.get_object()
+        
+        # دریافت تمام فروشندگانی که این محصول را دارند
+        sellers = Seller.objects.filter(product__id=product.id).distinct()
+        
+        serializer = SellerSerializer(sellers, many=True, context={
+            'request': request,
+            'product_id': product.id  # ارسال product_id به context
+        })
         return Response(serializer.data)
 
 class CategoryListAPIView(APIView):
