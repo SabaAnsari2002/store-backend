@@ -14,7 +14,26 @@ from rest_framework import generics, permissions
 from rest_framework.response import Response
 from .models import Address
 from .serializers import AddressSerializer
+from .models import Address, BankCard
+from .serializers import AddressSerializer, BankCardSerializer
 
+class BankCardListCreateView(generics.ListCreateAPIView):
+    serializer_class = BankCardSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return BankCard.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+class BankCardRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = BankCardSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return BankCard.objects.filter(user=self.request.user)
+        
 class AddressListCreateView(generics.ListCreateAPIView):
     serializer_class = AddressSerializer
     permission_classes = [permissions.IsAuthenticated]
