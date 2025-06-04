@@ -5,8 +5,8 @@ from .models import Product, Category, Subcategory
 from django.shortcuts import get_object_or_404
 from .serializers import CategorySerializer, ProductSerializer, SubcategorySerializer
 from rest_framework.views import APIView
-from sellers.models import Seller
 from sellers.serializers import SellerSerializer 
+from django.db.models import Min, Count
 
 
 class ProductViewSet(viewsets.ModelViewSet):
@@ -15,11 +15,23 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        category_name = self.request.query_params.get('category', None)
-        subcategory_name = self.request.query_params.get('subcategory', None)
-        
         if hasattr(self.request.user, 'seller'):
             queryset = queryset.filter(seller=self.request.user.seller)
+            return queryset
+        
+        if self.action == 'list':
+            distinct_products = Product.objects.values(
+                'name', 'category', 'subcategory'
+            ).annotate(
+                min_id=Min('id'),
+                sellers_count=Count('id', distinct=True)
+            ).order_by('name')
+
+            product_ids = [p['min_id'] for p in distinct_products]
+            queryset = queryset.filter(id__in=product_ids)
+        
+        category_name = self.request.query_params.get('category')
+        subcategory_name = self.request.query_params.get('subcategory')
         
         if category_name:
             queryset = queryset.filter(category__name=category_name)
@@ -30,8 +42,8 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         if not hasattr(self.request.user, 'seller'):
-            raise "You must be a seller to create products."
-        serializer.save(seller=self.request.user.seller)
+            raise PermissionError("فقط فروشندگان می‌توانند محصول ایجاد کنند.")
+        serializer.save()
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -42,7 +54,17 @@ class ProductViewSet(viewsets.ModelViewSet):
     def by_subcategory(self, request, subcategory_name=None):
         subcategory_name = subcategory_name.replace('-', ' ')
         subcategory = get_object_or_404(Subcategory, name=subcategory_name)
-        products = Product.objects.filter(subcategory=subcategory)
+        distinct_products = Product.objects.filter(
+            subcategory=subcategory
+        ).values(
+            'name', 'category', 'subcategory'
+        ).annotate(
+            min_id=Min('id')
+        )
+        
+        product_ids = [p['min_id'] for p in distinct_products]
+        products = Product.objects.filter(id__in=product_ids, subcategory=subcategory)
+        
         serializer = self.get_serializer(products, many=True)
         return Response(serializer.data)
 
@@ -50,22 +72,38 @@ class ProductViewSet(viewsets.ModelViewSet):
     def by_category(self, request, category_name=None):
         category_name = category_name.replace('-', ' ')
         category = get_object_or_404(Category, name=category_name)
-        products = Product.objects.filter(category=category)
+        distinct_products = Product.objects.filter(
+            category=category
+        ).values(
+            'name', 'category', 'subcategory'
+        ).annotate(
+            min_id=Min('id')
+        )
+        
+        product_ids = [p['min_id'] for p in distinct_products]
+        products = Product.objects.filter(id__in=product_ids, category=category)
         serializer = self.get_serializer(products, many=True)
         return Response(serializer.data)
     
     @action(detail=True, methods=['get'], url_path='sellers')
     def product_sellers(self, request, pk=None):
         product = self.get_object()
+        similar_products = Product.objects.filter(
+            name=product.name,
+            category=product.category,
+            subcategory=product.subcategory
+        ).select_related('seller')
         
-        # دریافت تمام فروشندگانی که این محصول را دارند
-        sellers = Seller.objects.filter(product__id=product.id).distinct()
+        sellers_data = []
+        for p in similar_products:
+            sellers_data.append({
+                'seller': SellerSerializer(p.seller, context={'request': request}).data,
+                'price': p.price,
+                'stock': p.stock,
+                'product_id': p.id
+            })
         
-        serializer = SellerSerializer(sellers, many=True, context={
-            'request': request,
-            'product_id': product.id  # ارسال product_id به context
-        })
-        return Response(serializer.data)
+        return Response(sellers_data)
 
 class CategoryListAPIView(APIView):
     def get(self, request, category_name=None):

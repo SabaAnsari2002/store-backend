@@ -1,31 +1,30 @@
 from rest_framework import serializers
-
 from sellers.models import Seller
 
 class SellerSerializer(serializers.ModelSerializer):
     price = serializers.SerializerMethodField()
     stock = serializers.SerializerMethodField()
-    delivery_time = serializers.SerializerMethodField()
 
     class Meta:
         model = Seller
         fields = ['shop_name', 'phone', 'address', 'description', 
-                 'price', 'stock', 'delivery_time']
+                 'price', 'stock']
     
     def get_price(self, obj):
-        product_id = self.context.get('product_id')
-        if product_id:
-            product = obj.product_set.filter(id=product_id).first()
-            return product.price if product else None
-        return None
-    
+        product = self.get_related_product(obj)
+        return product.price if product else None
+
     def get_stock(self, obj):
-        product_id = self.context.get('product_id')
-        if product_id:
-            product = obj.product_set.filter(id=product_id).first()
-            return product.stock if product else 0
-        return 0
-    
-    def get_delivery_time(self, obj):
-        # می‌توانید این مقدار را از تنظیمات فروشنده یا مدل سفارشی دریافت کنید
-        return "2-3 روز کاری"
+        product = self.get_related_product(obj)
+        return product.stock if product else 0
+
+    def get_related_product(self, obj):
+        product_name = self.context.get('product_name')
+        category_id = self.context.get('category_id')
+        subcategory_id = self.context.get('subcategory_id')
+        
+        return obj.product_set.filter(
+            name=product_name,
+            category_id=category_id,
+            subcategory_id=subcategory_id
+        ).first()
