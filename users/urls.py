@@ -1,7 +1,11 @@
 from django.urls import path
-from .views import RegisterUser, UserProfileView, AddressListCreateView,AddressRetrieveUpdateDestroyView,SetDefaultAddressView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+from .views import (
+    RegisterUser, UserProfileView, 
+    AddressListCreateView, AddressRetrieveUpdateDestroyView, SetDefaultAddressView,
+    BankCardListCreateView, BankCardRetrieveUpdateDestroyView
+)
 
 urlpatterns = [
     path('register/', RegisterUser.as_view(), name='register'),
@@ -11,4 +15,6 @@ urlpatterns = [
     path('addresses/', AddressListCreateView.as_view(), name='address_list_create'),
     path('addresses/<int:pk>/', AddressRetrieveUpdateDestroyView.as_view(), name='address_detail'),
     path('addresses/<int:pk>/set_default/', SetDefaultAddressView.as_view(), name='set_default_address'),
+    path('bank-cards/', BankCardListCreateView.as_view(), name='bank_card_list_create'),
+    path('bank-cards/<int:pk>/', BankCardRetrieveUpdateDestroyView.as_view(), name='bank_card_detail'),
 ]

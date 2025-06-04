@@ -1,7 +1,24 @@
 from rest_framework import serializers
 from .models import CustomUser
 from .models import Address
+from rest_framework import serializers
+from .models import CustomUser, Address, BankCard
 
+class BankCardSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BankCard
+        fields = ['id', 'card_name', 'card_number', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'user']
+        extra_kwargs = {
+    'card_number': {
+        'required': True,
+        'min_length': 16,
+        'max_length': 16
+    }
+}
+
+
+        
 
 class AddressSerializer(serializers.ModelSerializer):
     class Meta:
