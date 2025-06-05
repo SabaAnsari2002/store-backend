@@ -3,6 +3,13 @@ from .models import CustomUser
 from .models import Address
 from rest_framework import serializers
 from .models import CustomUser, Address, BankCard
+from .models import Discount
+from rest_framework import serializers
+
+class DiscountSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Discount
+        fields = ['id', 'title', 'code', 'description', 'percentage', 'for_first_purchase', 'is_active']
 
 class BankCardSerializer(serializers.ModelSerializer):
     class Meta:

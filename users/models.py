@@ -4,7 +4,20 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.conf import settings
+from django.db import models
+from django.conf import settings
 
+class Discount(models.Model):
+    title = models.CharField(max_length=255)
+    code = models.CharField(max_length=50, unique=True)
+    description = models.TextField()
+    percentage = models.PositiveIntegerField()
+    is_active = models.BooleanField(default=True)
+    for_first_purchase = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.title
 
 class BankCard(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='bank_cards')
