@@ -4,8 +4,21 @@ from .models import Address
 from rest_framework import serializers
 from .models import CustomUser, Address, BankCard
 from .models import Discount
-from rest_framework import serializers
+from .models import Ticket
 
+class TicketSerializer(serializers.ModelSerializer):
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    
+    class Meta:
+        model = Ticket
+        fields = ['id', 'subject', 'message', 'status', 'status_display', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'status', 'status_display', 'created_at', 'updated_at', 'user']
+
+    def create(self, validated_data):
+        validated_data['user'] = self.context['request'].user
+        return super().create(validated_data)
+    
+    
 class DiscountSerializer(serializers.ModelSerializer):
     class Meta:
         model = Discount
