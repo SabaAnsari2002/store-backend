@@ -4,7 +4,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import (
     RegisterUser, UserProfileView, 
     AddressListCreateView, AddressRetrieveUpdateDestroyView, SetDefaultAddressView,
-    BankCardListCreateView, BankCardRetrieveUpdateDestroyView
+    BankCardListCreateView, BankCardRetrieveUpdateDestroyView, ActiveDiscountsView
 )
 
 urlpatterns = [
@@ -17,4 +17,6 @@ urlpatterns = [
     path('addresses/<int:pk>/set_default/', SetDefaultAddressView.as_view(), name='set_default_address'),
     path('bank-cards/', BankCardListCreateView.as_view(), name='bank_card_list_create'),
     path('bank-cards/<int:pk>/', BankCardRetrieveUpdateDestroyView.as_view(), name='bank_card_detail'),
+    path('discounts/', ActiveDiscountsView.as_view(), name='active_discounts'),
+
 ]

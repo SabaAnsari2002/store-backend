@@ -16,6 +16,16 @@ from .models import Address
 from .serializers import AddressSerializer
 from .models import Address, BankCard
 from .serializers import AddressSerializer, BankCardSerializer
+from rest_framework import generics, permissions
+from .models import Discount
+from .serializers import DiscountSerializer
+
+class ActiveDiscountsView(generics.ListAPIView):
+    serializer_class = DiscountSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Discount.objects.filter(is_active=True)
 
 class BankCardListCreateView(generics.ListCreateAPIView):
     serializer_class = BankCardSerializer
