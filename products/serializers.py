@@ -3,15 +3,48 @@ from rest_framework.exceptions import ValidationError
 from .models import Category, Subcategory, Product
 
 class ProductSerializer(serializers.ModelSerializer):
-    category = serializers.CharField()
-    subcategory = serializers.CharField()
+    category = serializers.CharField(source='category.name')
+    subcategory = serializers.CharField(source='subcategory.name')
     category_id = serializers.SerializerMethodField()
     subcategory_id = serializers.SerializerMethodField()
+    sellers_count = serializers.SerializerMethodField()
+    sellers = serializers.SerializerMethodField()
+    product_group_id = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
-        fields = ['id', 'name', 'category', 'subcategory', 'category_id', 'subcategory_id', 'price', 'stock']
+        fields = ['id', 'name', 'category', 'subcategory', 'category_id', 
+                'subcategory_id', 'price', 'stock', 'sellers', 'sellers_count',
+                'product_group_id']
         read_only_fields = ['id']
+    
+    def get_product_group_id(self, obj):
+        return f"{obj.name}-{obj.category.id}-{obj.subcategory.id}".lower().replace(' ', '-')
+        
+    def get_sellers_count(self, obj):
+        return Product.objects.filter(
+            name=obj.name,
+            category=obj.category,
+            subcategory=obj.subcategory
+        ).count()
+
+    def get_sellers(self, obj):
+        similar_products = Product.objects.filter(
+            name=obj.name,
+            category=obj.category,
+            subcategory=obj.subcategory
+        ).select_related('seller')
+        
+        sellers_data = []
+        for product in similar_products:
+            sellers_data.append({
+                'seller_id': product.seller.id,
+                'shop_name': product.seller.shop_name,
+                'price': product.price,
+                'stock': product.stock,
+                'product_id': product.id
+            })
+        return sellers_data
 
     def get_category_id(self, obj):
         return obj.category.id if obj.category else None
@@ -20,52 +53,41 @@ class ProductSerializer(serializers.ModelSerializer):
         return obj.subcategory.id if obj.subcategory else None
 
     def validate(self, data):
-        category_name = data.get('category', '').strip()
-        subcategory_name = data.get('subcategory', '').strip()
+        category_name = data.get('category', {}).get('name', '').strip()
+        subcategory_name = data.get('subcategory', {}).get('name', '').strip()
         product_name = data.get('name', '').strip()
-
-        instance = getattr(self, 'instance', None)
         request = self.context.get('request')
+        instance = getattr(self, 'instance', None)
 
         if category_name and subcategory_name and product_name:
             try:
                 category = Category.objects.get(name=category_name)
                 subcategory = Subcategory.objects.get(name=subcategory_name, category=category)
-                
-                query = Product.objects.filter(
+
+                if not instance and Product.objects.filter(
                     name=product_name,
                     category=category,
                     subcategory=subcategory,
                     seller=request.user.seller
-                )
-                
-                if instance:
-                    query = query.exclude(pk=instance.pk)
-                
-                if query.exists():
+                ).exists():
                     raise ValidationError(
-                        "محصولی با این نام، دسته‌بندی و زیردسته‌بندی از قبل وجود دارد."
+                        "شما قبلاً این محصول را در همین دسته‌بندی ثبت کرده‌اید."
                     )
-                    
+
             except (Category.DoesNotExist, Subcategory.DoesNotExist):
                 pass
 
         return data
 
     def create(self, validated_data):
-        category_name = validated_data.pop('category', '').strip()
-        subcategory_name = validated_data.pop('subcategory', '').strip()
+        category_name = validated_data.pop('category', {}).get('name', '').strip()
+        subcategory_name = validated_data.pop('subcategory', {}).get('name', '').strip()
         request = self.context.get('request')
 
-        category, created = Category.objects.get_or_create(name=category_name)
-        if created:
-            print(f"دسته‌بندی '{category_name}' ایجاد شد.")
-        
-        subcategory, created = Subcategory.objects.get_or_create(
+        category, _ = Category.objects.get_or_create(name=category_name)
+        subcategory, _ = Subcategory.objects.get_or_create(
             name=subcategory_name, category=category
         )
-        if created:
-            print(f"زیرمجموعه '{subcategory_name}' برای دسته‌بندی '{category_name}' ایجاد شد.")
 
         validated_data.pop('seller', None)
 
@@ -76,24 +98,21 @@ class ProductSerializer(serializers.ModelSerializer):
             **validated_data
         )
         return product
-
+    
+    
     def update(self, instance, validated_data):
-        category_name = validated_data.get('category', '').strip()
-        subcategory_name = validated_data.get('subcategory', '').strip()
+        category_name = validated_data.get('category', {}).get('name', '').strip()
+        subcategory_name = validated_data.get('subcategory', {}).get('name', '').strip()
         request = self.context.get('request')
 
         if category_name:
-            category, created = Category.objects.get_or_create(name=category_name)
-            if created:
-                print(f"دسته‌بندی '{category_name}' ایجاد شد.")
+            category, _ = Category.objects.get_or_create(name=category_name)
             instance.category = category
 
         if subcategory_name:
-            subcategory, created = Subcategory.objects.get_or_create(
+            subcategory, _ = Subcategory.objects.get_or_create(
                 name=subcategory_name, category=instance.category
             )
-            if created:
-                print(f"زیرمجموعه '{subcategory_name}' برای دسته‌بندی '{category_name}' ایجاد شد.")
             instance.subcategory = subcategory
 
         instance.name = validated_data.get('name', instance.name)

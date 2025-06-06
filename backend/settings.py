@@ -7,6 +7,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-تغییر-دهید-این-کلید-را'
 DEBUG = True
 ALLOWED_HOSTS = []
+# APPEND_SLASH = False
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -20,10 +21,11 @@ INSTALLED_APPS = [
     'users',
     'sellers',
     'products',
+    'order'
 ]
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=120),  
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=200),  
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),     
     'ROTATE_REFRESH_TOKENS': False,                   
     'BLACKLIST_AFTER_ROTATION': False,                

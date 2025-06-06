@@ -1,0 +1,45 @@
+from django.db import models
+from django.contrib.auth import get_user_model
+from products.models import Product
+
+User = get_user_model()
+
+class Order(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'در حال پردازش'),
+        ('completed', 'تحویل شده'),
+        ('cancelled', 'لغو شده'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders', verbose_name='کاربر')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='تاریخ بروزرسانی')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='وضعیت')
+    total_price = models.IntegerField(default=0,verbose_name='مبلغ کل')
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'سفارش'
+        verbose_name_plural = 'سفارش‌ها'
+        
+    def update_total(self):
+        self.total_price = sum(item.price * item.quantity for item in self.items.all())
+        self.save()
+
+    def __str__(self):
+        return f"سفارش #{self.id} - {self.user.username}"
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items', verbose_name='سفارش')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, verbose_name='محصول')
+    seller = models.ForeignKey('sellers.Seller', on_delete=models.PROTECT, null=True, blank=True, verbose_name='فروشنده')
+    quantity = models.PositiveIntegerField(verbose_name='تعداد')
+    price = models.IntegerField(verbose_name='قیمت')
+    
+    class Meta:
+        unique_together = ['order', 'product', 'seller']
+        verbose_name = 'آیتم سفارش'
+        verbose_name_plural = 'آیتم‌های سفارش'
+    
+    def __str__(self):
+        return f"{self.product.name} ({self.quantity}) - {self.order}"
