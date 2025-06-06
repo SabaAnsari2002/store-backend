@@ -9,12 +9,17 @@ class ProductSerializer(serializers.ModelSerializer):
     subcategory_id = serializers.SerializerMethodField()
     sellers_count = serializers.SerializerMethodField()
     sellers = serializers.SerializerMethodField()
+    product_group_id = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = ['id', 'name', 'category', 'subcategory', 'category_id', 
-                'subcategory_id', 'price', 'stock', 'sellers', 'sellers_count']
+                'subcategory_id', 'price', 'stock', 'sellers', 'sellers_count',
+                'product_group_id']
         read_only_fields = ['id']
+    
+    def get_product_group_id(self, obj):
+        return f"{obj.name}-{obj.category.id}-{obj.subcategory.id}".lower().replace(' ', '-')
         
     def get_sellers_count(self, obj):
         return Product.objects.filter(

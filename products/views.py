@@ -7,6 +7,7 @@ from .serializers import CategorySerializer, ProductSerializer, SubcategorySeria
 from rest_framework.views import APIView
 from sellers.serializers import SellerSerializer 
 from django.db.models import Min, Count
+from rest_framework import status
 
 
 class ProductViewSet(viewsets.ModelViewSet):
@@ -27,7 +28,7 @@ class ProductViewSet(viewsets.ModelViewSet):
                 sellers_count=Count('id', distinct=True)
             ).order_by('name')
 
-            product_ids = [p['min_id'] for p in distinct_products]
+            product_ids = [p['min_id'] for p in distinct_products if p['sellers_count'] > 0]
             queryset = queryset.filter(id__in=product_ids)
         
         category_name = self.request.query_params.get('category')
@@ -39,7 +40,23 @@ class ProductViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(subcategory__name=subcategory_name)
         
         return queryset
-
+    
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        
+        similar_products_count = Product.objects.filter(
+            name=instance.name,
+            category=instance.category,
+            subcategory=instance.subcategory
+        ).exclude(id=instance.id).count()
+        
+        if similar_products_count > 0:
+            instance.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    
     def perform_create(self, serializer):
         if not hasattr(self.request.user, 'seller'):
             raise PermissionError("فقط فروشندگان می‌توانند محصول ایجاد کنند.")
@@ -104,7 +121,39 @@ class ProductViewSet(viewsets.ModelViewSet):
             })
         
         return Response(sellers_data)
-
+        
+    @action(detail=True, methods=['patch'], url_path='update-stock')
+    def update_stock(self, request, pk=None):
+        try:
+            product = Product.objects.get(id=pk)
+            quantity = int(request.data.get('quantity', 0))
+            
+            if product.stock < quantity:
+                return Response(
+                    {'error': f'موجودی کافی نیست (موجودی: {product.stock}, درخواستی: {quantity})'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            product.stock -= quantity
+            product.save()
+            
+            return Response({
+                'message': 'موجودی با موفقیت به‌روزرسانی شد',
+                'new_stock': product.stock,
+                'product_id': product.id,
+                'seller_id': product.seller.id
+            })
+            
+        except Product.DoesNotExist:
+            return Response(
+                {'error': 'محصول یافت نشد'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 class CategoryListAPIView(APIView):
     def get(self, request, category_name=None):
         category = get_object_or_404(Category, name=category_name)  
