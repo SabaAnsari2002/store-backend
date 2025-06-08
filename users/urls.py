@@ -1,10 +1,11 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from users.views import AdminTicketUpdateView, TicketReplyCreateView
 
 from .views import (
-    RegisterUser, UserProfileView, 
+    RegisterUser, TicketRetrieveView, UserProfileView, 
     AddressListCreateView, AddressRetrieveUpdateDestroyView, SetDefaultAddressView,
-    BankCardListCreateView, BankCardRetrieveUpdateDestroyView, ActiveDiscountsView,TicketListCreateView,TicketRetrieveView
+    BankCardListCreateView, BankCardRetrieveUpdateDestroyView, ActiveDiscountsView, TicketListCreateView
 )
 
 urlpatterns = [
@@ -18,6 +19,8 @@ urlpatterns = [
     path('bank-cards/', BankCardListCreateView.as_view(), name='bank_card_list_create'),
     path('bank-cards/<int:pk>/', BankCardRetrieveUpdateDestroyView.as_view(), name='bank_card_detail'),
     path('discounts/', ActiveDiscountsView.as_view(), name='active_discounts'),
-    path('tickets/', TicketListCreateView.as_view(), name='ticket_list_create'),
-    path('tickets/<int:pk>/', TicketRetrieveView.as_view(), name='ticket_detail'),
+    path('tickets/', TicketListCreateView.as_view(), name='ticket-list'),
+    path('tickets/<int:ticket_id>/reply/', TicketReplyCreateView.as_view(), name='ticket-reply'),
+    path('admin/tickets/<int:pk>/', AdminTicketUpdateView.as_view(), name='admin-ticket-update'),
+    path('tickets/<int:pk>/', TicketRetrieveView.as_view(), name='ticket-detail'),
 ]
