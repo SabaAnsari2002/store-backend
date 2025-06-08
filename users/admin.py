@@ -1,15 +1,39 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import CustomUser
-from .models import Ticket
+from .models import CustomUser, Ticket, TicketReply
+
+class TicketReplyInline(admin.StackedInline):
+    model = TicketReply
+    extra = 0
+    readonly_fields = ('user', 'created_at')
+    fields = ('user', 'message', 'created_at')
 
 @admin.register(Ticket)
 class TicketAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'subject', 'status', 'created_at')
-    list_filter = ('status', 'created_at')
-    search_fields = ('subject', 'message', 'user__username')
+    list_display = ('id', 'user', 'subject', 'status', 'priority', 'category', 'created_at')
+    list_filter = ('status', 'priority', 'category', 'created_at')
+    search_fields = ('subject', 'message', 'user__username', 'order_id')
     readonly_fields = ('created_at', 'updated_at')
-    
+    list_editable = ('status', 'priority')
+    inlines = [TicketReplyInline]
+    fieldsets = (
+        (None, {'fields': ('user', 'subject', 'message')}),
+        ('مشخصات فنی', {'fields': ('status', 'priority', 'category', 'order_id')}),
+        ('یادداشت مدیریت', {'fields': ('admin_notes',)}),
+        ('تاریخ‌ها', {'fields': ('created_at', 'updated_at')}),
+    )
+
+@admin.register(TicketReply)
+class TicketReplyAdmin(admin.ModelAdmin):
+    list_display = ('id', 'ticket', 'user', 'short_message', 'created_at')
+    list_filter = ('user', 'created_at')
+    search_fields = ('message', 'ticket__subject')
+    readonly_fields = ('created_at',)
+
+    def short_message(self, obj):
+        return obj.message[:50] + '...' if len(obj.message) > 50 else obj.message
+    short_message.short_description = 'پیام'
+
 @admin.register(CustomUser)
 class CustomUserAdmin(UserAdmin):
     model = CustomUser
@@ -21,8 +45,10 @@ class CustomUserAdmin(UserAdmin):
 
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
-        ('اطلاعات شخصی', {'fields': ('email', 'phone')}),
-        ('سطوح دسترسی', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+        ('اطلاعات شخصی', {'fields': ('email', 'phone', 'first_name', 'last_name')}),
+        ('سطوح دسترسی', {
+            'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions'),
+        }),
         ('تاریخ‌ها', {'fields': ('last_login', 'date_joined')}),
     )
 

@@ -1,44 +1,72 @@
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework import generics
-from rest_framework.response import Response
 from rest_framework import status
-from .models import CustomUser
-from .serializers import UserSerializer
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from .serializers import UserSerializer
 from rest_framework import generics, permissions
-from rest_framework.response import Response
-from .models import Address
-from .serializers import AddressSerializer
-from .models import Address, BankCard
-from .serializers import AddressSerializer, BankCardSerializer
-from rest_framework import generics, permissions
-from .models import Discount
-from .serializers import DiscountSerializer
-from .models import Ticket
-from .serializers import TicketSerializer
+from .models import Ticket,Discount, Address, BankCard, CustomUser
+from .serializers import TicketSerializer, TicketReplySerializer, DiscountSerializer, AddressSerializer, BankCardSerializer,UserSerializer
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.exceptions import PermissionDenied
+
+class TicketPagination(PageNumberPagination):
+    page_size = 10 
 
 class TicketListCreateView(generics.ListCreateAPIView):
+    pagination_class = TicketPagination
     serializer_class = TicketSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        if not self.request.user.is_authenticated:
+            return Ticket.objects.none()
+            
+        if self.request.user.is_staff:
+            return Ticket.objects.all()
         return Ticket.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
+        if not self.request.user.is_authenticated:
+            raise PermissionDenied("کاربر احراز هویت نشده است")
+            
         serializer.save(user=self.request.user)
 
+class TicketReplyCreateView(generics.CreateAPIView):
+    serializer_class = TicketReplySerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        ticket_id = self.kwargs['ticket_id']
+        ticket = generics.get_object_or_404(Ticket, id=ticket_id)
+
+
+        if self.request.user.is_staff and ticket.status != 'answered':
+            ticket.status = 'answered'
+            ticket.save()
+
+        is_staff_reply = True if self.request.user.is_staff else False
+        serializer.save(ticket=ticket, user=self.request.user, is_staff_reply=is_staff_reply)
+
+
+class AdminTicketUpdateView(generics.UpdateAPIView):
+    serializer_class = TicketSerializer
+    permission_classes = [permissions.IsAdminUser]
+    queryset = Ticket.objects.all()
+    
+    def perform_update(self, serializer):
+        if 'status' not in serializer.validated_data:
+            serializer.validated_data['status'] = self.get_object().status
+        serializer.save()
+        
+        
 class TicketRetrieveView(generics.RetrieveAPIView):
     serializer_class = TicketSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        if self.request.user.is_staff:
+            return Ticket.objects.all()
         return Ticket.objects.filter(user=self.request.user)
-    
     
 class ActiveDiscountsView(generics.ListAPIView):
     serializer_class = DiscountSerializer
@@ -72,7 +100,6 @@ class AddressListCreateView(generics.ListCreateAPIView):
         return Address.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
-        # If this is the first address, set it as default
         if not Address.objects.filter(user=self.request.user).exists():
             serializer.save(user=self.request.user, is_default=True)
         else:
