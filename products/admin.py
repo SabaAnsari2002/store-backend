@@ -1,5 +1,13 @@
 from django.contrib import admin
-from .models import Product, Category, Subcategory
+from .models import Product, Category, Subcategory,ProductComment
+
+@admin.register(ProductComment)
+class ProductCommentAdmin(admin.ModelAdmin):
+    list_display = ['id', 'product', 'user', 'created_at']
+    list_filter = ['product', 'user']
+    search_fields = ['text', 'user__username', 'product__name']
+    list_select_related = ['product', 'user']
+
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):

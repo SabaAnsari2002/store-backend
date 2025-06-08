@@ -1,5 +1,9 @@
 from django.db import models
 from sellers.models import Seller
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
 
 class Category(models.Model):
     name = models.CharField(max_length=255)
@@ -36,3 +40,19 @@ class Product(models.Model):
     class Meta:
         verbose_name = 'محصول'
         verbose_name_plural = 'محصولات'
+
+class ProductComment(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='product_comments')
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'نظر محصول'
+        verbose_name_plural = 'نظرات محصولات'
+
+    def __str__(self):
+        return f"Comment by {self.user.username} on {self.product.name}"
+    

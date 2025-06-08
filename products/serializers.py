@@ -1,7 +1,32 @@
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
-from .models import Category, Subcategory, Product
+from .models import Category, Subcategory, Product,ProductComment
+from django.contrib.auth import get_user_model
 
+User = get_user_model()
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'first_name', 'last_name']
+
+class ProductCommentSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    product_id = serializers.IntegerField(source='product.id', read_only=True)
+
+    class Meta:
+        model = ProductComment
+        fields = ['id', 'user', 'product_name', 'product_id', 'text', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'user', 'product_name', 'product_id', 'created_at', 'updated_at']
+
+
+class CreateProductCommentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductComment
+        fields = ['text']
+
+ 
 class ProductSerializer(serializers.ModelSerializer):
     category = serializers.CharField(source='category.name')
     subcategory = serializers.CharField(source='subcategory.name')
