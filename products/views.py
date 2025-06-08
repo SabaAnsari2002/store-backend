@@ -8,7 +8,56 @@ from rest_framework.views import APIView
 from sellers.serializers import SellerSerializer 
 from django.db.models import Min, Count
 from rest_framework import status
+from rest_framework import generics, permissions
+from .models import ProductComment
+from .serializers import ProductCommentSerializer, CreateProductCommentSerializer
+from rest_framework.response import Response
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from .models import ProductComment
+from .serializers import ProductCommentSerializer
+from rest_framework.response import Response
 
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def user_comments(request):
+    comments = ProductComment.objects.filter(user=request.user).select_related('product')
+    serializer = ProductCommentSerializer(comments, many=True)
+    return Response(serializer.data)
+
+
+
+class ProductCommentsList(generics.ListCreateAPIView):
+    serializer_class = ProductCommentSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+    def get_queryset(self):
+        product_id = self.kwargs['product_id']
+        return ProductComment.objects.filter(product_id=product_id).select_related('user')
+
+    def perform_create(self, serializer):
+        product_id = self.kwargs['product_id']
+        product = get_object_or_404(Product, id=product_id)
+        serializer.save(user=self.request.user, product=product)
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return CreateProductCommentSerializer
+        return ProductCommentSerializer
+
+@api_view(['DELETE'])
+@permission_classes([permissions.IsAuthenticated])
+def delete_comment(request, comment_id):
+    try:
+        comment = ProductComment.objects.get(id=comment_id, user=request.user)
+        comment.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    except ProductComment.DoesNotExist:
+        return Response(
+            {'error': 'Comment not found or you are not the owner'},
+            status=status.HTTP_404_NOT_FOUND
+        )
 
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
