@@ -30,7 +30,7 @@ def user_comments(request):
 
 class ProductCommentsList(generics.ListCreateAPIView):
     serializer_class = ProductCommentSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         product_id = self.kwargs['product_id']
@@ -46,18 +46,6 @@ class ProductCommentsList(generics.ListCreateAPIView):
             return CreateProductCommentSerializer
         return ProductCommentSerializer
 
-@api_view(['DELETE'])
-@permission_classes([permissions.IsAuthenticated])
-def delete_comment(request, comment_id):
-    try:
-        comment = ProductComment.objects.get(id=comment_id, user=request.user)
-        comment.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-    except ProductComment.DoesNotExist:
-        return Response(
-            {'error': 'Comment not found or you are not the owner'},
-            status=status.HTTP_404_NOT_FOUND
-        )
 
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
@@ -65,9 +53,10 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        if hasattr(self.request.user, 'seller'):
-            queryset = queryset.filter(seller=self.request.user.seller)
-            return queryset
+        if self.action == 'list' and hasattr(self.request.user, 'seller'):
+            return queryset.filter(seller=self.request.user.seller)
+        return queryset
+
         
         if self.action == 'list':
             distinct_products = Product.objects.values(
@@ -218,3 +207,14 @@ class SubcategoryListAPIView(APIView):
         subcategory = get_object_or_404(Subcategory, name=subcategory_name)  
         serializer = SubcategorySerializer(subcategory)
         return Response(serializer.data)
+    
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_comment(request, comment_id):
+    try:
+        comment = ProductComment.objects.get(id=comment_id, user=request.user)
+        comment.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    except ProductComment.DoesNotExist:
+        return Response({'error': 'Comment not found or not yours'}, status=status.HTTP_404_NOT_FOUND)

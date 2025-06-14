@@ -4,6 +4,8 @@ from rest_framework import status, permissions
 from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import SellerSerializer
 from .models import Seller
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 
 class SellerRegister(APIView):
     permission_classes = [permissions.IsAuthenticated]  
@@ -30,3 +32,13 @@ class SellerLogin(APIView):
             }, status=status.HTTP_200_OK)
         except Seller.DoesNotExist:
             return Response({"detail": "نام غرفه یا شماره تلفن اشتباه است."}, status=status.HTTP_401_UNAUTHORIZED)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def Check_shop(request):
+    try:
+        seller = Seller.objects.get(user=request.user)
+        return Response({'has_shop': True})
+    except Seller.DoesNotExist:
+        return Response({'has_shop': False})

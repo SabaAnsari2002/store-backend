@@ -4,9 +4,11 @@ from .models import Order, OrderItem
 from products.serializers import ProductSerializer
 from sellers.serializers import SellerSerializer
 
+User = get_user_model()
+
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
-        model = get_user_model()
+        model = User
         fields = ['id', 'username', 'email']
 
 class OrderItemSerializer(serializers.ModelSerializer):

@@ -5,7 +5,8 @@ from .views import (
     CategoryListAPIView,
     SubcategoryListAPIView,
     ProductCommentsList,
-    delete_comment,user_comments
+    delete_comment,
+    user_comments
 )
 from django.urls import path,re_path
 
@@ -19,8 +20,8 @@ urlpatterns = [
     path('api/products/<int:pk>/stock/', ProductViewSet.as_view({'patch': 'update_stock'}), name='product-stock'),
 
     path('<int:product_id>/comments/', ProductCommentsList.as_view(), name='product-comments'),
-    path('api/comments/<int:comment_id>/', delete_comment, name='delete-comment'),
     path('user/comments/', user_comments, name='user-comments'),
+    path('comments/<int:comment_id>/', delete_comment, name='delete-comment'),
 
 ]
 

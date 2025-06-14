@@ -1,6 +1,8 @@
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import status
 from rest_framework.views import APIView
+from rest_framework_simplejwt.views import TokenObtainPairView
+from .serializers import CustomTokenObtainPairSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import generics, permissions
@@ -128,14 +130,23 @@ class SetDefaultAddressView(generics.UpdateAPIView):
         Address.objects.filter(user=self.request.user).update(is_default=False)
         # Then set this one as default
         serializer.save(is_default=True)
+        
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
 
 
 class UserProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        serializer = UserSerializer(request.user)
-        return Response(serializer.data)
+        return Response({
+            "id": request.user.id,
+            "username": request.user.username,
+            "email": request.user.email,
+            "phone": request.user.phone,
+            "date_joined": request.user.date_joined.strftime("%Y-%m-%d %H:%M:%S"),
+        })
 
     def put(self, request):
         serializer = UserSerializer(request.user, data=request.data, partial=True)
@@ -152,6 +163,21 @@ class RegisterUser(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
+            email = serializer.validated_data.get('email')
+            phone = serializer.validated_data.get('phone')
+            
+            if CustomUser.objects.filter(email=email).exists():
+                return Response(
+                    {'email': ['این ایمیل قبلاً ثبت شده است.']},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            if CustomUser.objects.filter(phone=phone).exists():
+                return Response(
+                    {'phone': ['این شماره تلفن قبلاً ثبت شده است.']},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
             user = self.perform_create(serializer)
             
             refresh = RefreshToken.for_user(user)
@@ -160,6 +186,7 @@ class RegisterUser(generics.CreateAPIView):
             
             return Response({
                 'user': serializer.data,
+                'user_id': user.id,
                 'access_token': access_token,
                 'refresh_token': refresh_token
             }, status=status.HTTP_201_CREATED)
@@ -168,3 +195,28 @@ class RegisterUser(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         return serializer.save()
+
+
+class CheckDuplicatesView(APIView):
+    def post(self, request):
+        email = request.data.get('email', '').strip()
+        phone = request.data.get('phone', '').strip()
+        
+        response_data = {
+            'email_exists': False,
+            'phone_exists': False,
+            'errors': {}
+        }
+        
+        if email:
+            if CustomUser.objects.filter(email=email).exists():
+                response_data['email_exists'] = True
+                response_data['errors']['email'] = ['این ایمیل قبلاً ثبت شده است.']
+        
+        if phone:
+            if CustomUser.objects.filter(phone=phone).exists():
+                response_data['phone_exists'] = True
+                response_data['errors']['phone'] = ['این شماره تلفن قبلاً ثبت شده است.']
+        
+        return Response(response_data, status=status.HTTP_200_OK)
+    
