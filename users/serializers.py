@@ -1,5 +1,18 @@
 from rest_framework import serializers
 from .models import CustomUser, Ticket, TicketReply, Discount, Address, BankCard
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+
+
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        data = super().validate(attrs)
+
+        data['user_id'] = self.user.id 
+        data['username'] = self.user.username
+
+        return data
 
 class TicketReplySerializer(serializers.ModelSerializer):
     user = serializers.SerializerMethodField()
@@ -89,19 +102,30 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ('id', 'username', 'email', 'phone', 'password', 'new_password')
         extra_kwargs = {
             'password': {'write_only': True},
-            'new_password': {'write_only': True}
+            'new_password': {'write_only': True},
+            'email': {'required': True},
+            'phone': {'required': True}
         }
+
+    def validate_email(self, value):
+        if CustomUser.objects.filter(email=value).exists():
+            raise serializers.ValidationError("این ایمیل قبلاً ثبت شده است.")
+        return value
+
+    def validate_phone(self, value):
+        if CustomUser.objects.filter(phone=value).exists():
+            raise serializers.ValidationError("این شماره تلفن قبلاً ثبت شده است.")
+        return value
 
     def update(self, instance, validated_data):
         password = validated_data.pop('password', None)
         new_password = validated_data.pop('new_password', None)
 
-        # Verify current password if changing password
         if new_password:
             if not password:
-                raise serializers.ValidationError({"password": "Current password is required to set a new password."})
+                raise serializers.ValidationError({"password": "برای تغییر رمز عبور، رمز عبور فعلی را وارد کنید."})
             if not instance.check_password(password):
-                raise serializers.ValidationError({"password": "Current password is incorrect."})
+                raise serializers.ValidationError({"password": "رمز عبور فعلی نادرست است."})
             instance.set_password(new_password)
 
         return super().update(instance, validated_data)

@@ -42,9 +42,14 @@ class Product(models.Model):
         verbose_name_plural = 'محصولات'
 
 class ProductComment(models.Model):
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='product_comments')
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='comments')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='comments')
     text = models.TextField()
+    rating = models.PositiveSmallIntegerField(
+        choices=[(1, '1 ستاره'), (2, '2 ستاره'), (3, '3 ستاره'), (4, '4 ستاره'), (5, '5 ستاره')],
+        null=True, blank=True
+    )
+    is_approved = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -52,7 +57,14 @@ class ProductComment(models.Model):
         ordering = ['-created_at']
         verbose_name = 'نظر محصول'
         verbose_name_plural = 'نظرات محصولات'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'product'],
+                name='unique_user_product_comment',
+                condition=models.Q(is_approved=True),
+                violation_error_message='شما قبلاً برای این محصول نظر ثبت کرده‌اید'
+            )
+        ]
 
     def __str__(self):
         return f"Comment by {self.user.username} on {self.product.name}"
-    
