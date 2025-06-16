@@ -11,13 +11,8 @@ from rest_framework import status
 from rest_framework import generics, permissions
 from .models import ProductComment
 from .serializers import ProductCommentSerializer, CreateProductCommentSerializer
-from rest_framework.response import Response
-from rest_framework.decorators import api_view, permission_classes
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
-from .models import ProductComment
-from .serializers import ProductCommentSerializer
-from rest_framework.response import Response
 
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])

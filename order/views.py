@@ -25,7 +25,6 @@ class OrderViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        print("User ID:", self.request.user.id)
         return Order.objects.filter(user=self.request.user)
 
 
