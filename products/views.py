@@ -12,7 +12,8 @@ from rest_framework import generics, permissions
 from .models import ProductComment
 from .serializers import ProductCommentSerializer, CreateProductCommentSerializer
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
+
 
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
@@ -25,7 +26,11 @@ def user_comments(request):
 
 class ProductCommentsList(generics.ListCreateAPIView):
     serializer_class = ProductCommentSerializer
-    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return [IsAuthenticated()]
 
     def get_queryset(self):
         product_id = self.kwargs['product_id']
@@ -41,6 +46,12 @@ class ProductCommentsList(generics.ListCreateAPIView):
             return CreateProductCommentSerializer
         return ProductCommentSerializer
 
+    def list(self, request, *args, **kwargs):
+        try:
+            return super().list(request, *args, **kwargs)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
@@ -48,11 +59,16 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
+        user = self.request.user 
+        
         if self.action == 'list' and hasattr(self.request.user, 'seller'):
             return queryset.filter(seller=self.request.user.seller)
+
+        if hasattr(user, 'seller'):
+            queryset = queryset.exclude(seller=user.seller)
+
         return queryset
 
-        
         if self.action == 'list':
             distinct_products = Product.objects.values(
                 'name', 'category', 'subcategory'

@@ -9,7 +9,8 @@ class SellerSerializer(serializers.ModelSerializer):
         model = Seller
         fields = ['shop_name', 'phone', 'address', 'description', 
                  'price', 'stock']
-    
+        
+        
     def get_price(self, obj):
         product = self.get_related_product(obj)
         return product.price if product else None

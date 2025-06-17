@@ -42,6 +42,10 @@ class ProductSerializer(serializers.ModelSerializer):
                 'subcategory_id', 'price', 'stock', 'sellers', 'sellers_count',
                 'product_group_id']
         read_only_fields = ['id']
+        
+    def get_is_seller(self, obj):
+        user = self.context.get('request').user
+        return hasattr(user, 'seller') and user.seller == obj.seller
     
     def get_product_group_id(self, obj):
         return f"{obj.name}-{obj.category.id}-{obj.subcategory.id}".lower().replace(' ', '-')

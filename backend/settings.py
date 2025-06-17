@@ -21,7 +21,8 @@ INSTALLED_APPS = [
     'users',
     'sellers',
     'products',
-    'order'
+    'order',
+    'django_filters'
 ]
 
 SIMPLE_JWT = {

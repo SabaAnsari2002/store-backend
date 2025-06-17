@@ -7,6 +7,17 @@ from .models import Seller
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
+class UserProfileView(APIView):
+    permission_classes = [permissions.IsAuthenticated]  
+
+    def get(self, request):
+        try:
+            seller = Seller.objects.get(user=request.user)
+            serializer = SellerSerializer(seller)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Seller.DoesNotExist:
+            return Response({"detail": "شما فروشنده نیستید."}, status=status.HTTP_400_BAD_REQUEST)
+
 class SellerRegister(APIView):
     permission_classes = [permissions.IsAuthenticated]  
 
