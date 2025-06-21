@@ -59,16 +59,10 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        user = self.request.user 
+        if hasattr(self.request.user, 'seller'):
+            queryset = queryset.filter(seller=self.request.user.seller)
+            return queryset
         
-        if self.action == 'list' and hasattr(self.request.user, 'seller'):
-            return queryset.filter(seller=self.request.user.seller)
-
-        if hasattr(user, 'seller'):
-            queryset = queryset.exclude(seller=user.seller)
-
-        return queryset
-
         if self.action == 'list':
             distinct_products = Product.objects.values(
                 'name', 'category', 'subcategory'

@@ -2,6 +2,8 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.conf import settings
 
+from sellers.models import Seller
+
 class Ticket(models.Model):
     STATUS_CHOICES = [
         ('open', 'باز'),
@@ -75,18 +77,43 @@ class CustomUser(AbstractUser):
         verbose_name = 'کاربر'
         verbose_name_plural = 'کاربران'
 
-
 class Discount(models.Model):
+    seller = models.ForeignKey(Seller, on_delete=models.CASCADE, null=True, blank=True)
     title = models.CharField(max_length=255)
     code = models.CharField(max_length=50, unique=True)
     description = models.TextField()
-    percentage = models.DecimalField(max_digits=5, decimal_places=2)
+    percentage = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)
     for_first_purchase = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'تخفیف'
+        verbose_name_plural = 'تخفیف ها'
+        ordering = ['-created_at']
 
     def __str__(self):
-        return self.title
+        return f"{self.title} ({self.seller.user.username if self.seller else 'سیستمی'})"
+
+    def remaining_time(self):
+        from django.utils import timezone
+        expiry_date = self.created_at + timezone.timedelta(days=2)
+        remaining = expiry_date - timezone.now()
+        
+        if remaining.total_seconds() <= 0:
+            return "منقضی شده"
+        
+        days = remaining.days
+        hours = remaining.seconds // 3600
+        minutes = (remaining.seconds % 3600) // 60
+        
+        if days > 0:
+            return f"{days} روز و {hours} ساعت"
+        elif hours > 0:
+            return f"{hours} ساعت و {minutes} دقیقه"
+        else:
+            return f"{minutes} دقیقه"
 
 class BankCard(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='bank_cards')
@@ -107,3 +134,38 @@ class Address(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.title}"
+    
+class Store(models.Model):
+    name = models.CharField(max_length=100)
+    owner = models.ForeignKey('users.CustomUser', on_delete=models.CASCADE, related_name='owned_stores')
+    address = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        verbose_name='فروشگاه'
+        verbose_name_plural='فروشگاه ها'
+        
+    def __str__(self):
+        return self.name
+    
+class StoreRole(models.Model):
+    ROLE_CHOICES = [
+        ('cashier', 'صندوق دار'),
+        ('warehouse', 'انباردار'),
+        ('support', 'پشتیبان'),
+        ('manager', 'مدیر فروشگاه'),
+    ]
+    
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    seller = models.ForeignKey('sellers.Seller', on_delete=models.CASCADE)
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name='نقش'
+        verbose_name_plural='نقش ها'
+        unique_together = ('user', 'seller')
+
+    def __str__(self):
+        return f'{self.user.username} - {self.seller.shop_name} - {self.role}'

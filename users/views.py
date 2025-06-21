@@ -1,13 +1,14 @@
+from rest_framework import viewsets
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .serializers import CustomTokenObtainPairSerializer
+from .serializers import CustomTokenObtainPairSerializer, DiscountSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import generics, permissions
 from .models import Ticket,Discount, Address, BankCard, CustomUser
-from .serializers import TicketSerializer, TicketReplySerializer, DiscountSerializer, AddressSerializer, BankCardSerializer,UserSerializer
+from .serializers import TicketSerializer, TicketReplySerializer, AddressSerializer, BankCardSerializer,UserSerializer
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.exceptions import PermissionDenied
 
@@ -69,13 +70,6 @@ class TicketRetrieveView(generics.RetrieveAPIView):
         if self.request.user.is_staff:
             return Ticket.objects.all()
         return Ticket.objects.filter(user=self.request.user)
-    
-class ActiveDiscountsView(generics.ListAPIView):
-    serializer_class = DiscountSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        return Discount.objects.filter(is_active=True)
 
 class BankCardListCreateView(generics.ListCreateAPIView):
     serializer_class = BankCardSerializer
@@ -126,9 +120,7 @@ class SetDefaultAddressView(generics.UpdateAPIView):
         return Address.objects.filter(user=self.request.user)
 
     def perform_update(self, serializer):
-        # First, set all addresses of this user to non-default
         Address.objects.filter(user=self.request.user).update(is_default=False)
-        # Then set this one as default
         serializer.save(is_default=True)
         
 
@@ -219,4 +211,32 @@ class CheckDuplicatesView(APIView):
                 response_data['errors']['phone'] = ['این شماره تلفن قبلاً ثبت شده است.']
         
         return Response(response_data, status=status.HTTP_200_OK)
-    
+
+class DiscountViewSet(viewsets.ModelViewSet):
+    serializer_class = DiscountSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = Discount.objects.all()
+        
+        if not self.request.user.is_staff:
+            if hasattr(self.request.user, 'seller'):
+                queryset = queryset.filter(seller=self.request.user.seller)
+            else:
+                queryset = queryset.none()
+                
+        return queryset.order_by('-created_at')
+
+    def perform_create(self, serializer):
+        if hasattr(self.request.user, 'seller'):
+            serializer.save(seller=self.request.user.seller)
+        else:
+            serializer.save()
+            
+            
+class ActiveDiscountsView(generics.ListAPIView):
+    serializer_class = DiscountSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Discount.objects.filter(is_active=True)
