@@ -1,8 +1,7 @@
 from rest_framework import serializers
 
-# from sellers.models import Seller
 
-from .models import CustomUser, StoreRole, Ticket, TicketReply, Discount, Address, BankCard
+from .models import CustomUser, Ticket, TicketReply, Discount, Address, BankCard
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 

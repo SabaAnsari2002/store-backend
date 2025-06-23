@@ -72,6 +72,7 @@ class TicketReply(models.Model):
 
 class CustomUser(AbstractUser):
     phone = models.CharField(max_length=15, blank=True, null=True, verbose_name='تلفن همراه')
+    username = models.TextField(max_length=30 ,unique=True , blank=True , null=True , verbose_name='نام کاربری')
 
     class Meta:
         verbose_name = 'کاربر'

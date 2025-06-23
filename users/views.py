@@ -154,6 +154,7 @@ class RegisterUser(generics.CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
+        print({serializer})
         if serializer.is_valid():
             email = serializer.validated_data.get('email')
             phone = serializer.validated_data.get('phone')
@@ -169,12 +170,14 @@ class RegisterUser(generics.CreateAPIView):
                     {'phone': ['این شماره تلفن قبلاً ثبت شده است.']},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
+            print("3")
             user = self.perform_create(serializer)
             
             refresh = RefreshToken.for_user(user)
             access_token = str(refresh.access_token)
-            refresh_token = str(refresh)             
+            refresh_token = str(refresh)    
+            print("4")
+         
             
             return Response({
                 'user': serializer.data,
@@ -182,10 +185,15 @@ class RegisterUser(generics.CreateAPIView):
                 'access_token': access_token,
                 'refresh_token': refresh_token
             }, status=status.HTTP_201_CREATED)
+
         else:
+            print("6")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            print("7")
+
 
     def perform_create(self, serializer):
+        print("8")
         return serializer.save()
 
 
