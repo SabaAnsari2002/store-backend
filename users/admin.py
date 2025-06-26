@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import CustomUser, Discount, Store, StoreRole, Ticket, TicketReply
+from .models import CustomUser, Discount, Ticket, TicketReply
 
 class TicketReplyInline(admin.StackedInline):
     model = TicketReply
@@ -58,19 +58,6 @@ class CustomUserAdmin(UserAdmin):
             'fields': ('username', 'email', 'phone', 'password1', 'password2', 'is_staff', 'is_active')}
         ),
     )
-    
-@admin.register(Store)
-class StoreAdmin(admin.ModelAdmin):
-    list_display = ('name', 'owner', 'address', 'created_at')
-    list_filter = ('name', 'owner', 'created_at')
-    search_fields = ('name' , 'owner')
-    
-@admin.register(StoreRole)
-class StoreRoleAdmin(admin.ModelAdmin):
-    list_display = ('user' , 'seller', 'role', 'is_active', 'created_at')
-    list_filter = ('role', 'is_active', 'created_at')
-    search_fields = ('role', 'is_active')
-    
 
 @admin.register(Discount)
 class DiscountAdmin(admin.ModelAdmin):

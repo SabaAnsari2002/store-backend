@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from datetime import timedelta
 
@@ -22,6 +23,7 @@ INSTALLED_APPS = [
     'sellers',
     'products',
     'order',
+    'team_management',
     'django_filters'
 ]
 
@@ -107,8 +109,11 @@ USE_I18N = True
 USE_L10N = True
 
 STATIC_URL = '/static/'
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
 
 
 CORS_ALLOW_ALL_ORIGINS = False

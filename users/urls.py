@@ -28,10 +28,6 @@ urlpatterns = [
     path('admin/tickets/<int:pk>/', AdminTicketUpdateView.as_view(), name='admin-ticket-update'),
     path('tickets/<int:pk>/', TicketRetrieveView.as_view(), name='ticket-detail'),
     path('check-duplicates/', CheckDuplicatesView.as_view(), name='check_duplicates'),
-    path('discounts/', ActiveDiscountsView.as_view(), name='active_discounts'),
-
-    # path('team/', StoreRoleListCreateView.as_view(), name='store-team'),
-    # path('users/', UserListView.as_view(), name='user-list'),
 ]
 
 urlpatterns += router.urls

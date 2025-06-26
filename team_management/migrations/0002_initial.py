@@ -10,14 +10,18 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('sellers', '0001_initial'),
+        ('team_management', '0001_initial'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='seller',
+            model_name='storerole',
             name='user',
-            field=models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL),
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='store_roles', to=settings.AUTH_USER_MODEL),
+        ),
+        migrations.AlterUniqueTogether(
+            name='storerole',
+            unique_together={('user', 'seller')},
         ),
     ]
