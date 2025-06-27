@@ -11,6 +11,12 @@ from .models import Ticket,Discount, Address, BankCard, CustomUser
 from .serializers import TicketSerializer, TicketReplySerializer, AddressSerializer, BankCardSerializer,UserSerializer
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.exceptions import PermissionDenied
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.decorators import api_view, permission_classes
+from django.utils import timezone
+from .models import Discount
+from order.models import Order
+from .permissions import IsSellerOrAdmin
 
 class TicketPagination(PageNumberPagination):
     page_size = 10 
@@ -18,7 +24,7 @@ class TicketPagination(PageNumberPagination):
 class TicketListCreateView(generics.ListCreateAPIView):
     pagination_class = TicketPagination
     serializer_class = TicketSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         if not self.request.user.is_authenticated:
@@ -222,8 +228,10 @@ class CheckDuplicatesView(APIView):
 
 class DiscountViewSet(viewsets.ModelViewSet):
     serializer_class = DiscountSerializer
-    permission_classes = [IsAuthenticated]
-
+    permission_classes = [IsAuthenticated, IsSellerOrAdmin]
+    filterset_fields = ['is_active', 'for_first_purchase', 'seller']
+    search_fields = ['title', 'code', 'description']
+    
     def get_queryset(self):
         queryset = Discount.objects.all()
         
@@ -233,6 +241,13 @@ class DiscountViewSet(viewsets.ModelViewSet):
             else:
                 queryset = queryset.none()
                 
+        if self.action == 'list' and not self.request.user.is_staff:
+            queryset = queryset.filter(
+                is_active=True,
+                valid_from__lte=timezone.now(),
+                valid_to__gte=timezone.now()
+            )
+            
         return queryset.order_by('-created_at')
 
     def perform_create(self, serializer):
@@ -240,6 +255,92 @@ class DiscountViewSet(viewsets.ModelViewSet):
             serializer.save(seller=self.request.user.seller)
         else:
             serializer.save()
+            
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def apply_discount(request):
+    code = request.data.get('code')
+    seller_id = request.data.get('seller_id') or request.data.get('store_id')
+    order_total = request.data.get('order_total', 0) 
+    
+    if not code:
+        return Response(
+            {'error': 'کد تخفیف الزامی است'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        discount = Discount.objects.get(
+            code=code,
+            is_active=True,
+            valid_from__lte=timezone.now(),
+            valid_to__gte=timezone.now()
+        )
+        
+        if discount.min_order_amount > 0 and float(order_total) < discount.min_order_amount:
+            return Response(
+                {
+                    'error': f'برای استفاده از این کد تخفیف، حداقل مبلغ خرید باید {discount.min_order_amount} تومان باشد',
+                    'min_order_amount': discount.min_order_amount
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if discount.seller:
+            try:
+                if int(discount.seller.id) != int(seller_id):
+                    return Response(
+                        {'error': 'این کد تخفیف برای این فروشگاه معتبر نیست'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            except (ValueError, TypeError):
+                return Response(
+                    {'error': 'مشکل در شناسه فروشگاه'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        if discount.for_first_purchase:
+            has_previous_orders = Order.objects.filter(
+                user=request.user,
+                created_at__lt=timezone.now()
+            ).exists()
+            
+            if has_previous_orders:
+                return Response(
+                    {'error': 'این تخفیف فقط برای اولین خرید قابل استفاده است'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        if discount.is_single_use:
+            used_before = Order.objects.filter(
+                user=request.user,
+                discount=discount
+            ).exists()
+            
+            if used_before:
+                return Response(
+                    {'error': 'شما قبلاً از این کد تخفیف استفاده کرده‌اید'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        return Response({
+            'id': discount.id,
+            'title': discount.title,
+            'code': discount.code,
+            'percentage': discount.percentage,
+            'seller_id': discount.seller.id if discount.seller else None,
+            'shop_name': discount.seller.shop_name if discount.seller else None,
+            'description': discount.description,
+            'min_order_amount': discount.min_order_amount,
+            'for_first_purchase': discount.for_first_purchase
+        })
+        
+    except Discount.DoesNotExist:
+        return Response(
+            {'error': 'کد تخفیف نامعتبر یا منقضی شده است'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
             
             
 class ActiveDiscountsView(generics.ListAPIView):

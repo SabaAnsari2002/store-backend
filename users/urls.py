@@ -6,7 +6,7 @@ from .views import (
     TicketReplyCreateView, RegisterUser, TicketRetrieveView, 
     UserProfileView, AddressListCreateView, AddressRetrieveUpdateDestroyView, 
     SetDefaultAddressView, BankCardListCreateView, BankCardRetrieveUpdateDestroyView, 
-    TicketListCreateView
+    TicketListCreateView, apply_discount
 )
 
 router = DefaultRouter()
@@ -28,6 +28,8 @@ urlpatterns = [
     path('admin/tickets/<int:pk>/', AdminTicketUpdateView.as_view(), name='admin-ticket-update'),
     path('tickets/<int:pk>/', TicketRetrieveView.as_view(), name='ticket-detail'),
     path('check-duplicates/', CheckDuplicatesView.as_view(), name='check_duplicates'),
+    path('discounts/', ActiveDiscountsView.as_view() , name='list_of_discount'),
+    path('discounts/apply/', apply_discount, name='apply_discount'),
 ]
 
 urlpatterns += router.urls

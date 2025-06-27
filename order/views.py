@@ -2,6 +2,8 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+
+from users.models import Discount
 from .models import Order, OrderItem
 from .serializers import OrderSerializer
 from django.db import transaction
@@ -31,12 +33,24 @@ class OrderViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def checkout(self, request):
         cart_items = request.data.get('items', [])
+        discount_code = request.data.get('discount_code')
+
         if not cart_items:
             return Response({'error': 'سبد خرید خالی است'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             with transaction.atomic():
-                order = Order.objects.create(user=request.user)
+                discount = None
+                if discount_code:
+                    try:
+                        discount = Discount.objects.get(code=discount_code, is_active=True)
+                    except Discount.DoesNotExist:
+                        pass
+
+                order = Order.objects.create(
+                    user=request.user,
+                    discount=discount
+                )
                 total_price = 0
 
                 for item in cart_items:
@@ -58,7 +72,11 @@ class OrderViewSet(viewsets.ModelViewSet):
 
                     total_price += product.price * item['quantity']
 
-                order.total_price = total_price
+                order.original_price = total_price
+                if discount:
+                    order.total_price = int(total_price * (1 - discount.percentage / 100))
+                else:
+                    order.total_price = total_price
                 order.save()
 
                 serializer = self.get_serializer(order)

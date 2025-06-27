@@ -11,23 +11,34 @@ class Order(models.Model):
         ('cancelled', 'لغو شده'),
     ]
     
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders', verbose_name='کاربر')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
-    updated_at = models.DateTimeField(auto_now=True, verbose_name='تاریخ بروزرسانی')
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='وضعیت')
-    total_price = models.IntegerField(default=0,verbose_name='مبلغ کل')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    total_price = models.IntegerField(default=0)
+    original_price = models.IntegerField(default=0)
+    discount = models.ForeignKey(
+        'users.Discount', 
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='orders'
+    )
     
     class Meta:
         ordering = ['-created_at']
-        verbose_name = 'سفارش'
-        verbose_name_plural = 'سفارش‌ها'
         
     def update_total(self):
-        self.total_price = sum(item.price * item.quantity for item in self.items.all())
+        self.original_price = sum(item.price * item.quantity for item in self.items.all())
+        if self.discount:
+            self.total_price = int(self.original_price * (1 - self.discount.percentage / 100))
+        else:
+            self.total_price = self.original_price
+
         self.save()
 
     def __str__(self):
-        return f"سفارش #{self.id} - {self.user.username}"
+        return f"Order #{self.id} - {self.user.username}"
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items', verbose_name='سفارش')

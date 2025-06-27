@@ -22,7 +22,16 @@ class OrderItemSerializer(serializers.ModelSerializer):
 class OrderSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     items = OrderItemSerializer(many=True, read_only=True)
+    discount_percentage = serializers.SerializerMethodField()
+    discount_code = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
-        fields = ['id', 'user', 'items', 'total_price', 'status', 'created_at']
+        fields = ['id', 'user', 'items', 'total_price', 'original_price', 
+                 'status', 'created_at', 'discount', 'discount_percentage', 'discount_code']
+
+    def get_discount_percentage(self, obj):
+        return obj.discount.percentage if obj.discount else None
+
+    def get_discount_code(self, obj):
+        return obj.discount.code if obj.discount else None

@@ -136,27 +136,55 @@ class UserSerializer(serializers.ModelSerializer):
 class DiscountSerializer(serializers.ModelSerializer):
     remaining_time = serializers.SerializerMethodField()
     seller_name = serializers.CharField(source='seller.user.username', read_only=True)
+    shop_name = serializers.CharField(source='seller.shop_name', read_only=True)
+    is_valid = serializers.SerializerMethodField()
 
     class Meta:
         model = Discount
         fields = [
-            'id', 
-            'seller', 
+            'id',
+            'seller',
             'seller_name',
-            'title', 
-            'code', 
-            'description', 
-            'percentage', 
-            'is_active', 
-            'for_first_purchase', 
+            'shop_name',
+            'title',
+            'code',
+            'description',
+            'percentage',
+            'is_active',
+            'for_first_purchase',
+            'is_single_use',
+            'valid_from',
+            'valid_to',
+            'min_order_amount',
             'created_at',
             'updated_at',
-            'remaining_time'
+            'remaining_time',
+            'is_valid'
         ]
-        read_only_fields = ['seller', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at', 'remaining_time', 'is_valid']
+        extra_kwargs = {
+            'valid_from': {'required': True},
+            'valid_to': {'required': True},
+        }
 
     def get_remaining_time(self, obj):
         return obj.remaining_time()
+
+    def get_is_valid(self, obj):
+        return obj.is_valid()
+
+    def validate(self, data):
+        if data['valid_from'] >= data['valid_to']:
+            raise serializers.ValidationError(
+                {'valid_to': 'تاریخ پایان باید بعد از تاریخ شروع باشد'}
+            )
+        
+        if data['percentage'] <= 0 or data['percentage'] > 100:
+            raise serializers.ValidationError(
+                {'percentage': 'درصد تخفیف باید بین ۱ تا ۱۰۰ باشد'}
+            )
+        
+        return data
 
     def validate_code(self, value):
         if self.instance and self.instance.code == value:
@@ -165,14 +193,3 @@ class DiscountSerializer(serializers.ModelSerializer):
         if Discount.objects.filter(code=value).exists():
             raise serializers.ValidationError("این کد تخفیف قبلاً استفاده شده است")
         return value
-
-    def validate_percentage(self, value):
-        if value <= 0 or value > 100:
-            raise serializers.ValidationError("درصد تخفیف باید بین 1 تا 100 باشد")
-        return value
-
-    def create(self, validated_data):
-        request = self.context.get('request')
-        if request and hasattr(request.user, 'seller'):
-            validated_data['seller'] = request.user.seller
-        return super().create(validated_data)

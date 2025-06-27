@@ -1,7 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.conf import settings
-
+from django.utils import timezone
 from sellers.models import Seller
 
 class Ticket(models.Model):
@@ -79,42 +79,77 @@ class CustomUser(AbstractUser):
         verbose_name_plural = 'کاربران'
 
 class Discount(models.Model):
-    seller = models.ForeignKey(Seller, on_delete=models.CASCADE, null=True, blank=True)
-    title = models.CharField(max_length=255)
-    code = models.CharField(max_length=50, unique=True)
-    description = models.TextField()
-    percentage = models.IntegerField(default=0)
-    is_active = models.BooleanField(default=True)
-    for_first_purchase = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
+    seller = models.ForeignKey(
+        Seller, 
+        on_delete=models.CASCADE, 
+        null=True, 
+        blank=True,
+        related_name='discounts',
+        verbose_name='فروشگاه'
+    )
+    title = models.CharField(max_length=255, verbose_name='عنوان')
+    code = models.CharField(max_length=50, unique=True, verbose_name='کد تخفیف')
+    description = models.TextField(verbose_name='توضیحات', blank=True)
+    percentage = models.PositiveIntegerField(verbose_name='درصد تخفیف')
+    is_active = models.BooleanField(default=True, verbose_name='فعال')
+    for_first_purchase = models.BooleanField(
+        default=False, 
+        verbose_name='فقط اولین خرید'
+    )
+    is_single_use = models.BooleanField(
+        default=True,
+        verbose_name='یکبار مصرف'
+    )
+    valid_from = models.DateTimeField(
+        default=timezone.now,
+        verbose_name='تاریخ شروع اعتبار'
+    )
+    valid_to = models.DateTimeField(
+        verbose_name='تاریخ پایان اعتبار',
+        default= timezone.now
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='تاریخ به‌روزرسانی')
+    min_order_amount = models.PositiveIntegerField(
+        default=0,
+        verbose_name='حداقل مبلغ سفارش'
+    )
+
     class Meta:
         verbose_name = 'تخفیف'
-        verbose_name_plural = 'تخفیف ها'
+        verbose_name_plural = 'تخفیف‌ها'
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['code']),
+            models.Index(fields=['is_active']),
+            models.Index(fields=['valid_to']),
+        ]
 
     def __str__(self):
-        return f"{self.title} ({self.seller.user.username if self.seller else 'سیستمی'})"
+        return f"{self.title} ({self.percentage}%) - {self.seller.shop_name if self.seller else 'عمومی'}"
+
+    def is_valid(self):
+        now = timezone.now()
+        return (
+            self.is_active and
+            self.valid_from <= now <= self.valid_to
+        )
 
     def remaining_time(self):
-        from django.utils import timezone
-        expiry_date = self.created_at + timezone.timedelta(days=2)
-        remaining = expiry_date - timezone.now()
-        
-        if remaining.total_seconds() <= 0:
+        now = timezone.now()
+        if now > self.valid_to:
             return "منقضی شده"
         
+        remaining = self.valid_to - now
         days = remaining.days
-        hours = remaining.seconds // 3600
-        minutes = (remaining.seconds % 3600) // 60
+        hours, remainder = divmod(remaining.seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
         
         if days > 0:
             return f"{days} روز و {hours} ساعت"
         elif hours > 0:
             return f"{hours} ساعت و {minutes} دقیقه"
-        else:
-            return f"{minutes} دقیقه"
+        return f"{minutes} دقیقه"
 
 class BankCard(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='bank_cards')
