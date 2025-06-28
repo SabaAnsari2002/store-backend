@@ -36,7 +36,6 @@ class TicketReplySerializer(serializers.ModelSerializer):
         }
 
 
-
 class TicketSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     priority_display = serializers.CharField(source='get_priority_display', read_only=True)

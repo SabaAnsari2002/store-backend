@@ -1,3 +1,4 @@
+from django.shortcuts import get_object_or_404
 from rest_framework import viewsets
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import status
@@ -11,7 +12,6 @@ from .models import Ticket,Discount, Address, BankCard, CustomUser
 from .serializers import TicketSerializer, TicketReplySerializer, AddressSerializer, BankCardSerializer,UserSerializer
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.exceptions import PermissionDenied
-from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.decorators import api_view, permission_classes
 from django.utils import timezone
 from .models import Discount
@@ -40,21 +40,18 @@ class TicketListCreateView(generics.ListCreateAPIView):
             
         serializer.save(user=self.request.user)
 
+
 class TicketReplyCreateView(generics.CreateAPIView):
     serializer_class = TicketReplySerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
-        ticket_id = self.kwargs['ticket_id']
-        ticket = generics.get_object_or_404(Ticket, id=ticket_id)
-
-
-        if self.request.user.is_staff and ticket.status != 'answered':
-            ticket.status = 'answered'
-            ticket.save()
-
-        is_staff_reply = True if self.request.user.is_staff else False
-        serializer.save(ticket=ticket, user=self.request.user, is_staff_reply=is_staff_reply)
+        ticket = get_object_or_404(Ticket, id=self.kwargs['ticket_id'])
+        serializer.save(
+            ticket=ticket,
+            user=self.request.user,
+            is_staff_reply=self.request.user.is_staff 
+        )
 
 
 class AdminTicketUpdateView(generics.UpdateAPIView):
@@ -176,13 +173,11 @@ class RegisterUser(generics.CreateAPIView):
                     {'phone': ['این شماره تلفن قبلاً ثبت شده است.']},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            print("3")
             user = self.perform_create(serializer)
             
             refresh = RefreshToken.for_user(user)
             access_token = str(refresh.access_token)
             refresh_token = str(refresh)    
-            print("4")
          
             
             return Response({
@@ -193,13 +188,10 @@ class RegisterUser(generics.CreateAPIView):
             }, status=status.HTTP_201_CREATED)
 
         else:
-            print("6")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-            print("7")
 
 
     def perform_create(self, serializer):
-        print("8")
         return serializer.save()
 
 
