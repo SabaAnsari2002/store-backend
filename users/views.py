@@ -157,7 +157,6 @@ class RegisterUser(generics.CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        print({serializer})
         if serializer.is_valid():
             email = serializer.validated_data.get('email')
             phone = serializer.validated_data.get('phone')

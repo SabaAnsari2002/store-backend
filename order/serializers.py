@@ -1,10 +1,15 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import Order, OrderItem
+from sellers.models import Seller
 from products.serializers import ProductSerializer
-from sellers.serializers import SellerSerializer
 
 User = get_user_model()
+
+class SellerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Seller
+        fields = ['id', 'shop_name', 'phone']
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:

@@ -2,16 +2,15 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-
-from users.models import Discount
+from rest_framework.views import APIView
+from django.shortcuts import get_object_or_404
 from .models import Order, OrderItem
+from sellers.models import Seller
 from .serializers import OrderSerializer
+from users.models import Discount
 from django.db import transaction
 from products.models import Product
-from rest_framework.views import APIView
-
-
-
+from django.db import models
 
 class UserOrdersView(APIView):
     permission_classes = [IsAuthenticated]
@@ -22,14 +21,53 @@ class UserOrdersView(APIView):
         serializer = OrderSerializer(orders, many=True)
         return Response(serializer.data)
 
+class SellerOrdersView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        seller = get_object_or_404(Seller, user=request.user)
+        order_items = OrderItem.objects.filter(seller=seller).select_related(
+            'order', 'order__user', 'product'
+        ).order_by('-order__created_at')
+        
+        orders = {}
+        for item in order_items:
+            order_id = item.order.id
+            if order_id not in orders:
+                orders[order_id] = {
+                    'order_id': order_id,
+                    'customer': {
+                        'id': item.order.user.id,
+                        'username': item.order.user.username,
+                        'email': item.order.user.email,
+                        'phone' : item.order.user.phone
+                    },
+                    'status': item.order.status,
+                    'created_at': item.order.created_at,
+                    'total_price': item.order.total_price,
+                    'items': []
+                }
+            orders[order_id]['items'].append({
+                'product_id': item.product.id,
+                'product_name': item.product.name,
+                'quantity': item.quantity,
+                'price': item.price,
+                'total_price': item.price * item.quantity
+            })
+        
+        return Response(list(orders.values()))
+
 class OrderViewSet(viewsets.ModelViewSet):
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Order.objects.filter(user=self.request.user)
-
-
+        return Order.objects.filter(
+            models.Q(user=self.request.user) |
+            models.Q(items__seller__user=self.request.user)
+        ).distinct()
+        
+        
     @action(detail=False, methods=['post'])
     def checkout(self, request):
         cart_items = request.data.get('items', [])
@@ -87,35 +125,25 @@ class OrderViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'error': str(e)}, status=500)
 
-    @action(detail=False, methods=['get'], url_path='history')
-    def order_history(self, request):
-        orders = self.get_queryset().order_by('-created_at')
-        serializer = self.get_serializer(orders, many=True)
-        return Response(serializer.data)
-
-    @action(detail=True, methods=['get'])
-    def details(self, request, pk=None):
-        try:
-            order = self.get_queryset().get(pk=pk)
-            serializer = self.get_serializer(order)
-            return Response(serializer.data)
-        except Order.DoesNotExist:
-            if Order.objects.filter(pk=pk).exists():
-                return Response({"detail": "شما به این سفارش دسترسی ندارید"}, status=403)
-            return Response({"detail": "سفارش یافت نشد"}, status=404)
 
     @action(detail=True, methods=['patch'], url_path='update-status')
     def update_status(self, request, pk=None):
         try:
-            order = self.get_queryset().get(pk=pk)
+            order = Order.objects.get(
+                models.Q(pk=pk) & (
+                    models.Q(user=self.request.user) |
+                    models.Q(items__seller__user=self.request.user)
+                )
+            )
         except Order.DoesNotExist:
-            return Response({'error': 'سفارش یافت نشد'}, status=404)
+            return Response({'error': 'سفارش یافت نشد یا دسترسی ندارید'}, status=404)
 
         new_status = request.data.get('status')
-        if new_status not in ['pending', 'completed', 'cancelled']:
-            return Response({'error': 'وضعیت نامعتبر است'}, status=400)
+        valid_statuses = ['pending', 'completed', 'cancelled']
+        
+        if new_status not in valid_statuses:
+            return Response({'error': f'وضعیت نامعتبر است. مقادیر مجاز: {", ".join(valid_statuses)}'}, status=400)
 
         order.status = new_status
         order.save()
-        serializer = self.get_serializer(order)
-        return Response(serializer.data)
+        return Response({'success': f'وضعیت سفارش به {new_status} تغییر یافت'})
