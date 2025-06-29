@@ -2,7 +2,7 @@ from django.db import models
 from django.conf import settings
 
 class Seller(models.Model):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='seller')
     shop_name = models.CharField(max_length=255, verbose_name="نام فروشگاه")
     logo = models.ImageField(upload_to='shop_logos/', null=True, blank=True, verbose_name="لوگو فروشگاه")
     phone = models.CharField(max_length=15, verbose_name="تلفن")

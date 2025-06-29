@@ -24,8 +24,9 @@ class SellerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Seller
         fields = [
-            'id', 'shop_name', 'logo', 'phone', 'address', 'description',
-            'min_order_amount', 'is_active', 'shipping_methods', 'payment_gateways', 'price', 'stock'
+            'id', 'shop_name', 'logo', 'phone', 'address', 
+            'description', 'min_order_amount', 'is_active',
+            'shipping_methods', 'payment_gateways', 'price', 'stock'
         ]
         extra_kwargs = {
             'logo': {'write_only': True, 'required': False, 'allow_null': True}

@@ -36,6 +36,10 @@ class Order(models.Model):
             self.total_price = self.original_price
 
         self.save()
+        
+    class Meta:
+        verbose_name = 'سفارش'
+        verbose_name_plural = 'سفارش ها'
 
     def __str__(self):
         return f"سفارش {self.id} - {self.user.username}"

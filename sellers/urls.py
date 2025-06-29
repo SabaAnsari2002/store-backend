@@ -9,7 +9,6 @@ from .views import (
     PaymentGatewayDeleteView,
     SellerRegister,
     SellerLogin,
-    UserProfileView,
     Check_shop
     
 )
@@ -18,7 +17,6 @@ urlpatterns = [
     path('register/', SellerRegister.as_view()),
     path('login/', SellerLogin.as_view()),
     path('check-shop/', Check_shop , name='check_shop'),
-    path('issellers/', UserProfileView.as_view(), name='user_profile'),
     path('settings/', SellerSettingsView.as_view(), name='seller-settings'),
     path('shipping-methods/', ShippingMethodCreateView.as_view(), name='shipping-method-create'),
     path('shipping-methods/<int:id>/', ShippingMethodDeleteView.as_view(), name='shipping-method-delete'),

@@ -153,16 +153,18 @@ class ProductViewSet(viewsets.ModelViewSet):
             category=product.category,
             subcategory=product.subcategory
         ).select_related('seller')
-        
+
         sellers_data = []
         for p in similar_products:
+            is_own_product = p.seller.user.id
+
             sellers_data.append({
                 'seller': SellerSerializer(p.seller, context={'request': request}).data,
                 'price': p.price,
                 'stock': p.stock,
-                'product_id': p.id
+                'product_id': p.id,
+                'is_own_product': is_own_product
             })
-        
         return Response(sellers_data)
         
     @action(detail=True, methods=['patch'], url_path='update-stock')
