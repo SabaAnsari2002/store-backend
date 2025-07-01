@@ -8,7 +8,7 @@ from .views import (
     delete_comment,
     user_comments
 )
-from django.urls import path,re_path
+from django.urls import path
 
 router = DefaultRouter()
 router.register(r'', ProductViewSet, basename='products')

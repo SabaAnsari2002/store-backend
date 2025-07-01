@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import CustomUser, Ticket, TicketReply
+from .models import CustomUser, Discount, Ticket, TicketReply
 
 class TicketReplyInline(admin.StackedInline):
     model = TicketReply
@@ -58,3 +58,15 @@ class CustomUserAdmin(UserAdmin):
             'fields': ('username', 'email', 'phone', 'password1', 'password2', 'is_staff', 'is_active')}
         ),
     )
+
+@admin.register(Discount)
+class DiscountAdmin(admin.ModelAdmin):
+    list_display = ('id', 'title', 'code', 'seller', 'percentage', 'is_active', 'created_at', 'remaining_time')
+    list_filter = ('is_active', 'for_first_purchase', 'seller', 'created_at')
+    search_fields = ('title', 'code', 'seller__user__username')
+    readonly_fields = ('remaining_time',)
+    list_select_related = ('seller', 'seller__user')
+
+    def remaining_time(self, obj):
+        return obj.remaining_time()
+    remaining_time.short_description = 'زمان باقی‌مانده'

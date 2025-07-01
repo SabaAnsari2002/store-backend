@@ -1,15 +1,22 @@
+from django.shortcuts import get_object_or_404
+from rest_framework import viewsets
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .serializers import CustomTokenObtainPairSerializer
+from .serializers import CustomTokenObtainPairSerializer, DiscountSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import generics, permissions
 from .models import Ticket,Discount, Address, BankCard, CustomUser
-from .serializers import TicketSerializer, TicketReplySerializer, DiscountSerializer, AddressSerializer, BankCardSerializer,UserSerializer
+from .serializers import TicketSerializer, TicketReplySerializer, AddressSerializer, BankCardSerializer,UserSerializer
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.decorators import api_view, permission_classes
+from django.utils import timezone
+from .models import Discount
+from order.models import Order
+from .permissions import IsSellerOrAdmin
 
 class TicketPagination(PageNumberPagination):
     page_size = 10 
@@ -17,7 +24,7 @@ class TicketPagination(PageNumberPagination):
 class TicketListCreateView(generics.ListCreateAPIView):
     pagination_class = TicketPagination
     serializer_class = TicketSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         if not self.request.user.is_authenticated:
@@ -33,21 +40,18 @@ class TicketListCreateView(generics.ListCreateAPIView):
             
         serializer.save(user=self.request.user)
 
+
 class TicketReplyCreateView(generics.CreateAPIView):
     serializer_class = TicketReplySerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
-        ticket_id = self.kwargs['ticket_id']
-        ticket = generics.get_object_or_404(Ticket, id=ticket_id)
-
-
-        if self.request.user.is_staff and ticket.status != 'answered':
-            ticket.status = 'answered'
-            ticket.save()
-
-        is_staff_reply = True if self.request.user.is_staff else False
-        serializer.save(ticket=ticket, user=self.request.user, is_staff_reply=is_staff_reply)
+        ticket = get_object_or_404(Ticket, id=self.kwargs['ticket_id'])
+        serializer.save(
+            ticket=ticket,
+            user=self.request.user,
+            is_staff_reply=self.request.user.is_staff 
+        )
 
 
 class AdminTicketUpdateView(generics.UpdateAPIView):
@@ -69,13 +73,6 @@ class TicketRetrieveView(generics.RetrieveAPIView):
         if self.request.user.is_staff:
             return Ticket.objects.all()
         return Ticket.objects.filter(user=self.request.user)
-    
-class ActiveDiscountsView(generics.ListAPIView):
-    serializer_class = DiscountSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        return Discount.objects.filter(is_active=True)
 
 class BankCardListCreateView(generics.ListCreateAPIView):
     serializer_class = BankCardSerializer
@@ -126,9 +123,7 @@ class SetDefaultAddressView(generics.UpdateAPIView):
         return Address.objects.filter(user=self.request.user)
 
     def perform_update(self, serializer):
-        # First, set all addresses of this user to non-default
         Address.objects.filter(user=self.request.user).update(is_default=False)
-        # Then set this one as default
         serializer.save(is_default=True)
         
 
@@ -177,12 +172,12 @@ class RegisterUser(generics.CreateAPIView):
                     {'phone': ['این شماره تلفن قبلاً ثبت شده است.']},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
             user = self.perform_create(serializer)
             
             refresh = RefreshToken.for_user(user)
             access_token = str(refresh.access_token)
-            refresh_token = str(refresh)             
+            refresh_token = str(refresh)    
+         
             
             return Response({
                 'user': serializer.data,
@@ -190,8 +185,10 @@ class RegisterUser(generics.CreateAPIView):
                 'access_token': access_token,
                 'refresh_token': refresh_token
             }, status=status.HTTP_201_CREATED)
+
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
     def perform_create(self, serializer):
         return serializer.save()
@@ -219,4 +216,127 @@ class CheckDuplicatesView(APIView):
                 response_data['errors']['phone'] = ['این شماره تلفن قبلاً ثبت شده است.']
         
         return Response(response_data, status=status.HTTP_200_OK)
+
+class DiscountViewSet(viewsets.ModelViewSet):
+    serializer_class = DiscountSerializer
+    permission_classes = [IsAuthenticated, IsSellerOrAdmin]
+    filterset_fields = ['is_active', 'for_first_purchase', 'seller']
+    search_fields = ['title', 'code', 'description']
     
+    def get_queryset(self):
+        queryset = Discount.objects.all()
+        
+        if not self.request.user.is_staff:
+            if hasattr(self.request.user, 'seller'):
+                queryset = queryset.filter(seller=self.request.user.seller)
+            else:
+                queryset = queryset.none()
+                
+        if self.action == 'list' and not self.request.user.is_staff:
+            queryset = queryset.filter(
+                is_active=True,
+                valid_from__lte=timezone.now(),
+                valid_to__gte=timezone.now()
+            )
+            
+        return queryset.order_by('-created_at')
+
+    def perform_create(self, serializer):
+        if hasattr(self.request.user, 'seller'):
+            serializer.save(seller=self.request.user.seller)
+        else:
+            serializer.save()
+            
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def apply_discount(request):
+    code = request.data.get('code')
+    seller_id = request.data.get('seller_id') or request.data.get('store_id')
+    order_total = request.data.get('order_total', 0) 
+    
+    if not code:
+        return Response(
+            {'error': 'کد تخفیف الزامی است'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        discount = Discount.objects.get(
+            code=code,
+            is_active=True,
+            valid_from__lte=timezone.now(),
+            valid_to__gte=timezone.now()
+        )
+        
+        if discount.min_order_amount > 0 and float(order_total) < discount.min_order_amount:
+            return Response(
+                {
+                    'error': f'برای استفاده از این کد تخفیف، حداقل مبلغ خرید باید {discount.min_order_amount} تومان باشد',
+                    'min_order_amount': discount.min_order_amount
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if discount.seller:
+            try:
+                if int(discount.seller.id) != int(seller_id):
+                    return Response(
+                        {'error': 'این کد تخفیف برای این فروشگاه معتبر نیست'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            except (ValueError, TypeError):
+                return Response(
+                    {'error': 'مشکل در شناسه فروشگاه'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        if discount.for_first_purchase:
+            has_previous_orders = Order.objects.filter(
+                user=request.user,
+                created_at__lt=timezone.now()
+            ).exists()
+            
+            if has_previous_orders:
+                return Response(
+                    {'error': 'این تخفیف فقط برای اولین خرید قابل استفاده است'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        if discount.is_single_use:
+            used_before = Order.objects.filter(
+                user=request.user,
+                discount=discount
+            ).exists()
+            
+            if used_before:
+                return Response(
+                    {'error': 'شما قبلاً از این کد تخفیف استفاده کرده‌اید'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        return Response({
+            'id': discount.id,
+            'title': discount.title,
+            'code': discount.code,
+            'percentage': discount.percentage,
+            'seller_id': discount.seller.id if discount.seller else None,
+            'shop_name': discount.seller.shop_name if discount.seller else None,
+            'description': discount.description,
+            'min_order_amount': discount.min_order_amount,
+            'for_first_purchase': discount.for_first_purchase
+        })
+        
+    except Discount.DoesNotExist:
+        return Response(
+            {'error': 'کد تخفیف نامعتبر یا منقضی شده است'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+            
+            
+class ActiveDiscountsView(generics.ListAPIView):
+    serializer_class = DiscountSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Discount.objects.filter(is_active=True)

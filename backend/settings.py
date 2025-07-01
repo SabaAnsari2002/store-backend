@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from datetime import timedelta
 
@@ -21,11 +22,14 @@ INSTALLED_APPS = [
     'users',
     'sellers',
     'products',
-    'order'
+    'order',
+    'cards',
+    'team_management',
+    'django_filters'
 ]
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=200),  
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=1400),  
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),     
     'ROTATE_REFRESH_TOKENS': False,                   
     'BLACKLIST_AFTER_ROTATION': False,                
@@ -106,8 +110,11 @@ USE_I18N = True
 USE_L10N = True
 
 STATIC_URL = '/static/'
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
 
 
 CORS_ALLOW_ALL_ORIGINS = False

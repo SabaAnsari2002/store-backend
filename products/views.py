@@ -11,13 +11,9 @@ from rest_framework import status
 from rest_framework import generics, permissions
 from .models import ProductComment
 from .serializers import ProductCommentSerializer, CreateProductCommentSerializer
-from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from .models import ProductComment
-from .serializers import ProductCommentSerializer
-from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated, AllowAny
+
 
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
@@ -30,7 +26,11 @@ def user_comments(request):
 
 class ProductCommentsList(generics.ListCreateAPIView):
     serializer_class = ProductCommentSerializer
-    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return [IsAuthenticated()]
 
     def get_queryset(self):
         product_id = self.kwargs['product_id']
@@ -46,6 +46,12 @@ class ProductCommentsList(generics.ListCreateAPIView):
             return CreateProductCommentSerializer
         return ProductCommentSerializer
 
+    def list(self, request, *args, **kwargs):
+        try:
+            return super().list(request, *args, **kwargs)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
@@ -53,10 +59,9 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        if self.action == 'list' and hasattr(self.request.user, 'seller'):
-            return queryset.filter(seller=self.request.user.seller)
-        return queryset
-
+        if hasattr(self.request.user, 'seller'):
+            queryset = queryset.filter(seller=self.request.user.seller)
+            return queryset
         
         if self.action == 'list':
             distinct_products = Product.objects.values(
@@ -148,16 +153,18 @@ class ProductViewSet(viewsets.ModelViewSet):
             category=product.category,
             subcategory=product.subcategory
         ).select_related('seller')
-        
+
         sellers_data = []
         for p in similar_products:
+            is_own_product = p.seller.user.id
+
             sellers_data.append({
                 'seller': SellerSerializer(p.seller, context={'request': request}).data,
                 'price': p.price,
                 'stock': p.stock,
-                'product_id': p.id
+                'product_id': p.id,
+                'is_own_product': is_own_product
             })
-        
         return Response(sellers_data)
         
     @action(detail=True, methods=['patch'], url_path='update-stock')
