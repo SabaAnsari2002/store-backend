@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     'sellers',
     'products',
     'order',
+    'cards',
     'team_management',
     'django_filters'
 ]
