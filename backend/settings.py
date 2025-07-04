@@ -1,14 +1,15 @@
 import os
 from pathlib import Path
 from datetime import timedelta
+from decouple import config
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-SECRET_KEY = 'django-insecure-تغییر-دهید-این-کلید-را'
-DEBUG = True
-ALLOWED_HOSTS = ['127.0.0.1' , 'localhost']
-# APPEND_SLASH = False
+SECRET_KEY = config('SECRET_KEY')
+DEBUG = config('DEBUG', cast=bool, default=False)
+ALLOWED_HOSTS = ['*']
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -84,10 +85,16 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': config("SQL_ENGINE"),
+        'NAME': config("SQL_DATABASE"),
+        'USER': config("SQL_USER"),
+        'PASSWORD': config("SQL_PASSWORD"),
+        'HOST': config("SQL_HOST"),
+        'PORT': config("SQL_PORT"),
     }
 }
+
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 AUTH_PASSWORD_VALIDATORS = [
     {
