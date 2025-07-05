@@ -17,6 +17,9 @@ env/
 secrets.py
 config/local.py
 
+media
+media/*
+
 
 # Python cache and compiled files
 __pycache__/
